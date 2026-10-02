@@ -3,10 +3,6 @@ name = "solana-geyser-mock"
 version = "0.1.0"
 edition = "2021"
 
-[[bin]]
-name = "solana-geyser-mock-yellowstone-grpc"
-path = "src/main_yellowstone_grpc.rs"
-
 [dependencies]
 thiserror = "1.0"
 anyhow = "1.0.62"
@@ -77,11 +73,9 @@ solana-tls-utils = { version = "=4.3.0", default-features = false }
 solana-transaction-status-client-types = "=4.3.0"
 solana-transaction-status = "=4.3.0" # needed for RewardsAndNumPartitions; no ledger/rocksdb pull
 
-agave-geyser-plugin-interface = "=4.3.0"
-
-libloading = "0.7.4"
 rand = "0.7.3"
 
+agave-geyser-plugin-interface = "=4.3.0"
 yellowstone-grpc-geyser = { git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v16.0.0+solana.4.3.0", default-features = false }
 yellowstone-grpc-proto = { git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v16.0.0+solana.4.3.0", default-features = false }
 

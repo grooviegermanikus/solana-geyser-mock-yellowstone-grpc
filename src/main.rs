@@ -1,23 +1,24 @@
-use crate::geyser_plugin_util::{
-    accountinfo_from_shared_account_data, setup_plugin, slot_status_from_commitment_level,
-    MockAccount, MockMessage,
-};
-use agave_geyser_plugin_interface::geyser_plugin_interface::{
-    ReplicaAccountInfoV3, ReplicaAccountInfoVersions, ReplicaBlockInfoV3, ReplicaBlockInfoV4,
-    ReplicaBlockInfoVersions, SlotStatus,
-};
+use std::path::PathBuf;
+use std::str::FromStr;
+use agave_geyser_plugin_interface::geyser_plugin_interface::{ReplicaAccountInfoV3, ReplicaAccountInfoVersions, ReplicaBlockInfoV4, ReplicaBlockInfoVersions};
 use clap::Parser;
-use log::{info, warn};
+use log::{debug, info, warn};
+use solana_clock::BankId;
 use solana_commitment_config::CommitmentLevel;
 use solana_transaction_status::RewardsAndNumPartitions;
-use std::path::Path;
-use tracing::debug;
-use tracing_subscriber::EnvFilter;
+use tokio::runtime::Runtime;
+use crate::geyser_plugin_util::setup_plugin;
+use crate::model::MockMessage;
+use crate::solana::slot_status_from_commitment_level;
 
-mod debouncer_instant;
 mod geyser_plugin_util;
-mod loaded_plugin;
+pub mod solana;
+pub mod model;
 mod mock_service;
+mod debouncer_instant;
+
+// note: if this channel fills the process will very likely die with OOM at some point!
+const MOCK_BUFFER: usize = 102400;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -33,30 +34,13 @@ pub struct Args {
     pub slot_tick_delay: f64,
 }
 
-// note: if this channel fills the process will very likely die with OOM at some point!
-const MOCK_BUFFER: usize = 102400;
-
-#[tokio::main]
-async fn main() {
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .init();
+pub fn main() {
 
     let args = Args::parse();
 
-    assert!(
-        args.compressibility >= 0.0 && args.compressibility <= 1.0,
-        "compressibility must be in [0.0, 1.0]"
-    );
+    let config_file = PathBuf::from_str(&args.geyser_plugin_config).unwrap();
 
-    info!(
-        "Loading geyser plugin from config: {}",
-        args.geyser_plugin_config
-    );
-    let config_file = Path::new(&args.geyser_plugin_config);
-    assert!(config_file.exists(), "Config file must exist");
-
-    let plugin = setup_plugin(config_file.as_ref()).unwrap();
+    let plugin = setup_plugin(&config_file).unwrap();
 
     let (channel_tx, mut channel_rx) = tokio::sync::mpsc::channel::<MockMessage>(MOCK_BUFFER);
 
@@ -70,6 +54,7 @@ async fn main() {
 
     std::thread::spawn(move || {
         let log_debouncer = debouncer_instant::Debouncer::new(std::time::Duration::from_millis(10));
+        let mut bank_id: BankId = 1000;
 
         'recv_loop: loop {
             match channel_rx.blocking_recv() {
@@ -97,8 +82,9 @@ async fn main() {
 
                     let account = ReplicaAccountInfoVersions::V0_0_3(&account_v3);
                     plugin
-                        .update_account(account, mock_account.slot, false)
+                        .update_account_for_bank(account, mock_account.slot, bank_id)
                         .unwrap();
+                    bank_id += 1;
                 }
                 Some(MockMessage::Slot(mock_slot)) => {
                     debug!(
@@ -140,6 +126,7 @@ async fn main() {
             }
         }
     })
-    .join()
-    .unwrap();
+        .join()
+        .unwrap();
+
 }
