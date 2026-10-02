@@ -1,17 +1,16 @@
 use bytes::{Bytes, BytesMut};
 use rand::distributions::Standard;
 use rand::{random, thread_rng, Rng, RngCore};
-use solana_sdk::clock::UnixTimestamp;
-use solana_sdk::pubkey::Pubkey;
-// use solana_sdk::recent_blockhashes_account::update_account;
+use solana_clock::UnixTimestamp;
+use solana_pubkey::Pubkey;
 use crate::debouncer_instant;
 use crate::geyser_plugin_util::{MockAccount, MockMessage, MockSlot};
 use agave_geyser_plugin_interface::geyser_plugin_interface::ReplicaAccountInfoV3;
 use libloading::Library;
 use log::{debug, error, info, warn};
-use solana_program::clock::Slot;
-use solana_sdk::account::{Account, AccountSharedData};
-use solana_sdk::commitment_config::CommitmentLevel::{Confirmed, Finalized, Processed};
+use solana_account::{Account, AccountSharedData};
+use solana_clock::Slot;
+use solana_commitment_config::CommitmentLevel::{Confirmed, Finalized, Processed};
 use std::ops::Add;
 use std::path::Path;
 use std::thread::{sleep, spawn};
@@ -183,6 +182,7 @@ pub async fn mainnet_traffic(
     }
 }
 
+#[allow(dead_code)]
 pub async fn helloworld_traffic(grpc_channel: UnboundedSender<MockAccount>) {
     loop {
         let account_mock = MockAccount {

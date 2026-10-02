@@ -1,16 +1,14 @@
 use agave_geyser_plugin_interface::geyser_plugin_interface::{
     GeyserPlugin, GeyserPluginError, ReplicaAccountInfoV3, SlotStatus,
 };
+use crate::loaded_plugin::LoadedGeyserPlugin;
 use libloading::Library;
-use log::info;
-use solana_geyser_plugin_manager::geyser_plugin_manager::{
-    GeyserPluginManagerError, LoadedGeyserPlugin,
-};
-use solana_program::clock::{Epoch, Slot};
-use solana_program::pubkey::Pubkey;
-use solana_sdk::account::{AccountSharedData, ReadableAccount};
-use solana_sdk::commitment_config::CommitmentLevel;
-use solana_sdk::transaction::SanitizedTransaction;
+use log::{info, warn};
+use solana_account::{AccountSharedData, ReadableAccount};
+use solana_clock::{Epoch, Slot};
+use solana_commitment_config::CommitmentLevel;
+use solana_pubkey::Pubkey;
+use solana_transaction::sanitized::SanitizedTransaction;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -40,100 +38,70 @@ pub struct MockAccount {
 // see also GeyserPluginManager: load_plugin
 
 pub fn setup_plugin(config_file: &Path) -> Result<Arc<LoadedGeyserPlugin>, GeyserPluginError> {
-    let (mut new_plugin, new_lib, new_config_file) = load_plugin_from_config(config_file).unwrap();
+    let mut new_plugin = load_plugin_from_config(config_file).unwrap();
 
     setup_logger_for_plugin(new_plugin.as_ref())?;
 
     // Attempt to on_load with new plugin
     match new_plugin.on_load(config_file.as_os_str().to_str().unwrap(), true) {
-        // On success, push plugin and library
         Ok(()) => {
             info!("Successfully loaded plugin: {}", new_plugin.name());
-            // self.plugins.push(new_plugin);
-            // self.libs.push(new_lib);
         }
-
-        // On failure, return error
         Err(err) => {
-            // return Err(jsonrpc_core::error::Error {
-            //     code: ErrorCode::InvalidRequest,
-            //     message: format!(
-            //         "Failed to start new plugin (previous plugin was dropped!): {err}"
-            //     ),
-            //     data: None,
-            // });
+            warn!("Failed to on_load plugin {}: {err}", new_plugin.name());
         }
     }
 
     Ok(Arc::new(new_plugin))
 }
 
-fn load_plugin_from_config(
-    geyser_plugin_config_file: &Path,
-) -> Result<(LoadedGeyserPlugin, Library, &str), GeyserPluginManagerError> {
+fn load_plugin_from_config(geyser_plugin_config_file: &Path) -> anyhow::Result<LoadedGeyserPlugin> {
     use std::{fs::File, io::Read, path::PathBuf};
     type PluginConstructor = unsafe fn() -> *mut dyn GeyserPlugin;
     use libloading::Symbol;
 
-    let mut file = match File::open(geyser_plugin_config_file) {
-        Ok(file) => file,
-        Err(err) => {
-            return Err(GeyserPluginManagerError::CannotOpenConfigFile(format!(
-                "Failed to open the plugin config file {geyser_plugin_config_file:?}, error: {err:?}"
-            )));
-        }
-    };
+    let mut file = File::open(geyser_plugin_config_file).map_err(|err| {
+        anyhow::anyhow!(
+            "Failed to open the plugin config file {geyser_plugin_config_file:?}, error: {err:?}"
+        )
+    })?;
 
     let mut contents = String::new();
-    if let Err(err) = file.read_to_string(&mut contents) {
-        return Err(GeyserPluginManagerError::CannotReadConfigFile(format!(
+    file.read_to_string(&mut contents).map_err(|err| {
+        anyhow::anyhow!(
             "Failed to read the plugin config file {geyser_plugin_config_file:?}, error: {err:?}"
-        )));
-    }
+        )
+    })?;
 
-    let result: serde_json::Value = match json5::from_str(&contents) {
-        Ok(value) => value,
-        Err(err) => {
-            return Err(GeyserPluginManagerError::InvalidConfigFileFormat(format!(
-                "The config file {geyser_plugin_config_file:?} is not in a valid Json5 format, error: {err:?}"
-            )));
-        }
-    };
+    let result: serde_json::Value = json5::from_str(&contents).map_err(|err| {
+        anyhow::anyhow!(
+            "The config file {geyser_plugin_config_file:?} is not in a valid Json5 format, error: {err:?}"
+        )
+    })?;
 
     let libpath = result["libpath"]
         .as_str()
-        .ok_or(GeyserPluginManagerError::LibPathNotSet)?;
+        .ok_or_else(|| anyhow::anyhow!("libpath is not set in {geyser_plugin_config_file:?}"))?;
     let mut libpath = PathBuf::from(libpath);
     if libpath.is_relative() {
         let config_dir = geyser_plugin_config_file.parent().ok_or_else(|| {
-            GeyserPluginManagerError::CannotOpenConfigFile(format!(
-                "Failed to resolve parent of {geyser_plugin_config_file:?}",
-            ))
+            anyhow::anyhow!("Failed to resolve parent of {geyser_plugin_config_file:?}")
         })?;
         libpath = config_dir.join(libpath);
     }
 
     let plugin_name = result["name"].as_str().map(|s| s.to_owned());
 
-    let config_file = geyser_plugin_config_file
-        .as_os_str()
-        .to_str()
-        .ok_or(GeyserPluginManagerError::InvalidPluginPath)?;
-
     let (plugin, lib) = unsafe {
         let lib = Library::new(libpath)
-            .map_err(|e| GeyserPluginManagerError::PluginLoadError(e.to_string()))?;
+            .map_err(|e| anyhow::anyhow!("Failed to load plugin library: {e}"))?;
         let constructor: Symbol<PluginConstructor> = lib
             .get(b"_create_plugin")
-            .map_err(|e| GeyserPluginManagerError::PluginLoadError(e.to_string()))?;
+            .map_err(|e| anyhow::anyhow!("Failed to find _create_plugin symbol: {e}"))?;
         let plugin_raw = constructor();
         (Box::from_raw(plugin_raw), lib)
     };
-    Ok((
-        LoadedGeyserPlugin::new(plugin, plugin_name),
-        lib,
-        config_file,
-    ))
+    Ok(LoadedGeyserPlugin::new(lib, plugin, plugin_name))
 }
 
 pub fn accountinfo_from_shared_account_data<'a>(

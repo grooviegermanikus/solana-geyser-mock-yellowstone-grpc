@@ -8,10 +8,7 @@ use agave_geyser_plugin_interface::geyser_plugin_interface::{
 };
 use clap::Parser;
 use log::{info, warn};
-use solana_program::pubkey::Pubkey;
-use solana_sdk::account::{AccountSharedData, ReadableAccount};
-use solana_sdk::clock::Slot;
-use solana_sdk::commitment_config::CommitmentLevel;
+use solana_commitment_config::CommitmentLevel;
 use solana_transaction_status::RewardsAndNumPartitions;
 use std::path::Path;
 use tracing::debug;
@@ -19,6 +16,7 @@ use tracing_subscriber::EnvFilter;
 
 mod debouncer_instant;
 mod geyser_plugin_util;
+mod loaded_plugin;
 mod mock_service;
 
 #[derive(Parser, Debug)]
@@ -111,7 +109,7 @@ async fn main() {
                         .update_slot_status(
                             mock_slot.slot,
                             None,
-                            slot_status_from_commitment_level(mock_slot.commitment_level),
+                            &slot_status_from_commitment_level(mock_slot.commitment_level),
                         )
                         .unwrap();
 
