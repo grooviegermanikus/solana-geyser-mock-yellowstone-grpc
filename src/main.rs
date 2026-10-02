@@ -42,10 +42,12 @@ pub fn main() {
 
     let plugin = setup_plugin(&config_file).unwrap();
 
+    let runtime = Runtime::new().unwrap();
+
     let (channel_tx, mut channel_rx) = tokio::sync::mpsc::channel::<MockMessage>(MOCK_BUFFER);
 
-    // tokio::task::spawn(yellowstone_mock_service::helloworld_traffic(channel_tx));
-    tokio::task::spawn(mock_service::mainnet_traffic(
+    // runtime.spawn(yellowstone_mock_service::helloworld_traffic(channel_tx));
+    runtime.spawn(mock_service::mainnet_traffic(
         channel_tx,
         args.account_bytes_per_slot,
         args.compressibility,
