@@ -106,6 +106,18 @@ async fn run(args: Args) -> anyhow::Result<()> {
 
     // 2. Subscribe to all accounts + slots, replaying from `from_slot`.
     let request = SubscribeRequest {
+        accounts: [(
+            "acc".to_owned(),
+            SubscribeRequestFilterAccounts {
+                account: vec![],
+                owner: vec!["LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo".to_string()],
+                filters: vec![],
+                nonempty_txn_signature: None,
+                cuckoo_accounts_filter: None,
+            },
+        )]
+        .into_iter()
+        .collect(),
         slots: [(
             "sl".to_owned(),
             SubscribeRequestFilterSlots::default(),
