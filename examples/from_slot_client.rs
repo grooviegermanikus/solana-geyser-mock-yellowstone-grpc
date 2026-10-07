@@ -18,17 +18,16 @@
 //! `replay_stored_slots` > 0. With the default `replay_stored_slots: 0` the
 //! server rejects a `from_slot` request (or has nothing to replay).
 
-use anyhow::Context;
+use anyhow::{bail, Context};
 use clap::Parser;
-use futures::StreamExt;
 use log::{error, info};
+use solana_clock::Slot;
 use solana_pubkey::Pubkey;
 use tokio::runtime::Runtime;
+use tokio_stream::StreamExt;
 use yellowstone_grpc_client::{ClientTlsConfig, GeyserGrpcClient};
-use yellowstone_grpc_proto::geyser::{
-    subscribe_update::UpdateOneof, CommitmentLevel, SubscribeRequest,
-    SubscribeRequestFilterAccounts, SubscribeRequestFilterSlots,
-};
+use yellowstone_grpc_proto::geyser::{subscribe_update::UpdateOneof, CommitmentLevel, SubscribeRequest, SubscribeRequestFilterAccounts, SubscribeRequestFilterSlots, SubscribeUpdate};
+use yellowstone_grpc_proto::tonic::Status;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about = "yellowstone-gRPC from_slot example client", long_about = None)]
@@ -93,11 +92,16 @@ async fn run(args: Args) -> anyhow::Result<()> {
         .context("failed to connect to gRPC endpoint")?;
 
     // 1. Learn the server's current slot. Everything at or below this is replay.
-    let baseline = client
-        .get_slot(Some(commitment))
-        .await
-        .context("get_slot request failed")?
-        .slot;
+    let baseline = capture_baseline_slot(commitment, &mut client).await?;
+
+
+        // let baseline = client
+        //     .get_slot(Some(commitment))
+        //     .await
+        //     .context("get_slot request failed")?
+        //     .slot;
+
+    
     let from_slot = baseline.saturating_sub(args.replay_slots);
     info!(
         "current slot = {baseline}; subscribing with from_slot = {from_slot} (rewind {} slots, commitment {commitment:?})",
@@ -173,6 +177,40 @@ async fn run(args: Args) -> anyhow::Result<()> {
 
     error!("stream ended (totals: {accounts} accounts, {slots} slots)");
     Ok(())
+}
+
+async fn capture_baseline_slot(commitment: CommitmentLevel, client: &mut GeyserGrpcClient) -> anyhow::Result<Slot> {
+    let baseline_slot_request = SubscribeRequest {
+        slots: [(
+            "slot".to_owned(),
+            SubscribeRequestFilterSlots { filter_by_commitment: Some(false), interslot_updates: None },
+        )]
+            .into(),
+        commitment: Some(commitment as i32),
+        ..Default::default()
+    };
+
+    let mut stream = client
+        .subscribe_once(baseline_slot_request)
+        .await
+        .context("subscribe request failed")?;
+
+    while let Some(message) = stream.next().await {
+        info!("baseline {:?}", message);
+        let update = message.context("stream error")?;
+        match update.update_oneof {
+            Some(UpdateOneof::Slot(slot_update)) => {
+                return Ok(slot_update.slot);
+            }
+            Some(_) => {}
+            None => {
+                break;
+            }
+        }
+
+    }
+
+    bail!("no slot message received")
 }
 
 /// Updates at or below the baseline slot are replayed from the server's buffer;
