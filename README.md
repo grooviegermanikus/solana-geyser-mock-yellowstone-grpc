@@ -16,6 +16,21 @@ Parameters:
 cargo run --release --bin client -- --endpoint http://host_ip:10000 subscribe --accounts
 ```
 
+## Run the from_slot example client
+Demonstrates the yellowstone-gRPC `from_slot` replay feature: it reads the
+server's current slot, then subscribes with `from_slot = current - replay_slots`
+and tags each update as `REPLAY` (slot <= baseline) or `LIVE` (slot > baseline).
+```bash
+export RUST_LOG=info
+cargo run --example from_slot_client -- --endpoint http://127.0.0.1:10000 --replay-slots 20
+```
+Options: `--endpoint`, `--replay-slots`, `--commitment` (processed|confirmed|finalized).
+
+NOTE: the server only replays slots when its geyser config sets
+`replay_stored_slots` > 0. With the default `replay_stored_slots: 0` (see
+`localdev/yellowstone-grpc/config-groovie.json`) there is nothing to replay and
+the server rejects the `from_slot` request.
+
 ## Run the client (QUIC Geyser Plugin)
 ```bash
 export RUST_LOG=info

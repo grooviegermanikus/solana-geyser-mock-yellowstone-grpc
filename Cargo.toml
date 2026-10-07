@@ -74,6 +74,7 @@ solana-transaction-status-client-types = "=4.3.0"
 solana-transaction-status = "=4.3.0" # needed for RewardsAndNumPartitions; no ledger/rocksdb pull
 
 rand = "0.7.3"
+rustls = "0.23"
 
 agave-geyser-plugin-interface = "=4.3.0"
 yellowstone-grpc-geyser = { git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v16.0.0+solana.4.3.0", default-features = false }
@@ -81,6 +82,8 @@ yellowstone-grpc-proto = { git = "https://github.com/rpcpool/yellowstone-grpc.gi
 
 [dev-dependencies]
 lz4_flex = "0.11.3"
+# high-level yellowstone gRPC client, used by the from_slot example (examples/from_slot_client.rs)
+yellowstone-grpc-client = { git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v16.0.0+solana.4.3.0", default-features = false }
 
 #agave-account-decoder = "=1.17.28"
 #agave-geyser-plugin-interface = "=1.17.28"

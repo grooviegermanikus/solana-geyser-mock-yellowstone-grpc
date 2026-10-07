@@ -4894,6 +4894,7 @@ dependencies = [
  "log",
  "lz4_flex",
  "rand 0.7.3",
+ "rustls",
  "serde",
  "serde_bytes",
  "serde_derive",
@@ -4932,6 +4933,7 @@ dependencies = [
  "tokio-stream",
  "tracing",
  "tracing-subscriber",
+ "yellowstone-grpc-client",
  "yellowstone-grpc-geyser",
  "yellowstone-grpc-proto",
 ]
@@ -7745,6 +7747,26 @@ dependencies = [
  "rusticata-macros",
  "thiserror 2.0.21",
  "time",
+]
+
+[[package]]
+name = "yellowstone-grpc-client"
+version = "14.0.0"
+source = "git+https://github.com/rpcpool/yellowstone-grpc.git?tag=v16.0.0%2Bsolana.4.3.0#bfd1d7ee548081b6e36d4238d5ce8f34c94c4fb6"
+dependencies = [
+ "arc-swap",
+ "bytes",
+ "futures",
+ "hyper 1.11.1",
+ "hyper-util",
+ "log",
+ "pin-project",
+ "thiserror 2.0.21",
+ "tokio",
+ "tonic",
+ "tonic-health",
+ "tower",
+ "yellowstone-grpc-proto",
 ]
 
 [[package]]
