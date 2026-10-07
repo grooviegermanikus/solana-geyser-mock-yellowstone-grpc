@@ -26,10 +26,12 @@ cargo run --example from_slot_client -- --endpoint http://127.0.0.1:10000 --repl
 ```
 Options: `--endpoint`, `--replay-slots`, `--commitment` (processed|confirmed|finalized).
 
-NOTE: the server only replays slots when its geyser config sets
-`replay_stored_slots` > 0. With the default `replay_stored_slots: 0` (see
-`localdev/yellowstone-grpc/config-groovie.json`) there is nothing to replay and
-the server rejects the `from_slot` request.
+NOTE: `from_slot` only works when the geyser config sets `replay_stored_slots` > 0
+(`localdev/yellowstone-grpc/config-groovie.json` ships with `300`). With
+`replay_stored_slots: 0` the server rejects the `from_slot` request
+(`from_slot is not supported`), and there is nothing to replay. Pick
+`--replay-slots` smaller than `replay_stored_slots` so the requested history is
+still buffered.
 
 ## Run the client (QUIC Geyser Plugin)
 ```bash
