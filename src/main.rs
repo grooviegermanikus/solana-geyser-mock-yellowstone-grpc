@@ -30,6 +30,9 @@ pub struct Args {
     pub account_bytes_per_slot: u64,
     #[arg(long, default_value = "0.0")]
     pub compressibility: f64,
+    /// Milliseconds over which to spread each slot's account updates, within the
+    /// fixed ~400ms slot. Keep below 400; larger values stretch account delivery and
+    /// slow slot production.
     #[arg(long, default_value = "350.0")]
     pub slot_tick_delay: f64,
 }

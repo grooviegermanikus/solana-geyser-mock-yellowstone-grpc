@@ -183,7 +183,7 @@ async fn capture_baseline_slot(commitment: CommitmentLevel, client: &mut GeyserG
     let baseline_slot_request = SubscribeRequest {
         slots: [(
             "slot".to_owned(),
-            SubscribeRequestFilterSlots { filter_by_commitment: Some(false), interslot_updates: None },
+            SubscribeRequestFilterSlots { filter_by_commitment: None, interslot_updates: None },
         )]
             .into(),
         commitment: Some(commitment as i32),
