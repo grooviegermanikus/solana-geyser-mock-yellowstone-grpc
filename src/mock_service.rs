@@ -24,11 +24,11 @@ pub async fn mainnet_traffic(
     geyser_channel: Sender<MockMessage>,
     bytes_per_slot: u64,
     compressibility: f64,
-    slot_tick_delay: f64,
+    slot_tick_delay: Duration,
 ) {
     info!(
-        "Setup mainnet-like traffic source with {} bytes per slot and compressibility {}",
-        bytes_per_slot, compressibility
+        "Setup mainnet-like traffic source with {} bytes per slot and compressibility {} and slot_tick_delay {:?}",
+        bytes_per_slot, compressibility, slot_tick_delay
     );
     let owner = Pubkey::new_unique();
     let account_pubkeys: Vec<Pubkey> = (0..100).map(|_| Pubkey::new_unique()).collect();
@@ -71,13 +71,13 @@ pub async fn mainnet_traffic(
             requested_sizes.len()
         );
 
-        // Spread the account updates across the first `slot_tick_delay` milliseconds of
+        // Spread the account updates across the first `slot_tick_delay` seconds of
         // the slot, leaving some headroom before the 400ms slot boundary below.
-        let avg_delay_ms = slot_tick_delay / requested_sizes.len() as f64;
+        let avg_delay_sec = slot_tick_delay.as_secs_f64() / requested_sizes.len() as f64;
 
         for (i, data_bytes) in requested_sizes.into_iter().enumerate() {
             let next_message_at = slot_started_at
-                .add(Duration::from_secs_f64(avg_delay_ms * i as f64 / 1000.0));
+                .add(Duration::from_secs_f64(avg_delay_sec * i as f64));
 
             let account_build_started_at = Instant::now();
             let mut data = vec![0; data_bytes as usize];

@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 use std::str::FromStr;
+use std::time::Duration;
 use agave_geyser_plugin_interface::geyser_plugin_interface::{GeyserPlugin, ReplicaAccountInfoV3, ReplicaAccountInfoVersions, ReplicaBlockInfoV4, ReplicaBlockInfoVersions, SlotStatus};
 use clap::Parser;
 use log::{debug, info, warn};
@@ -33,8 +34,8 @@ pub struct Args {
     /// Milliseconds over which to spread each slot's account updates, within the
     /// fixed ~400ms slot. Keep below 400; larger values stretch account delivery and
     /// slow slot production.
-    #[arg(long, default_value = "350.0")]
-    pub slot_tick_delay: f64,
+    #[arg(long, default_value = "200.0")]
+    pub slot_tick_delay_ms: f64,
 }
 
 pub fn main() {
@@ -54,7 +55,7 @@ pub fn main() {
         channel_tx,
         args.account_bytes_per_slot,
         args.compressibility,
-        args.slot_tick_delay,
+        Duration::from_micros((args.slot_tick_delay_ms * 1000.0) as u64),
     ));
 
     std::thread::spawn(move || {
